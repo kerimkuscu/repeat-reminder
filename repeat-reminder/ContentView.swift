@@ -1,88 +1,124 @@
-//
-//  ContentView.swift
-//  repeat-reminder
-//
-//  Created by Kerim Kuşcu on 19.12.2024.
-//
-
 import SwiftUI
-import CoreData
 
 struct ContentView: View {
-    @Environment(\.managedObjectContext) private var viewContext
-
-    @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
-        animation: .default)
-    private var items: FetchedResults<Item>
-
+    @StateObject private var viewModel = ReminderViewModel()
+    @State private var showingAddReminder = false
+    @State private var showingAddGroup = false
+    @State private var showingEditGroup = false
+    @State private var showingEditReminder = false
+    @State private var newGroupName = ""
+    @State private var selectedGroup: ReminderGroup?
+    @State private var selectedReminder: Reminder?
+    @State private var editingGroupName = ""
+    
     var body: some View {
         NavigationView {
             List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp!, formatter: itemFormatter)")
-                    } label: {
-                        Text(item.timestamp!, formatter: itemFormatter)
+                ForEach(viewModel.groups) { group in
+                    Section(header: GroupHeaderView(group: group,
+                                                  onEdit: {
+                        selectedGroup = group
+                        editingGroupName = group.name
+                        showingEditGroup = true
+                    },
+                                                  onDelete: {
+                        viewModel.deleteGroup(group)
+                    })) {
+                        ForEach(group.reminders) { reminder in
+                            ReminderRowView(reminder: reminder) {
+                                selectedReminder = reminder
+                                showingEditReminder = true
+                            }
+                            .contextMenu {
+                                ForEach(viewModel.groups.filter { $0.id != group.id }) { targetGroup in
+                                    Button {
+                                        viewModel.moveReminder(reminder, from: group, to: targetGroup)
+                                    } label: {
+                                        Label("'\(targetGroup.name)' grubuna taşı", systemImage: "folder")
+                                    }
+                                }
+                                
+                                Button(role: .destructive) {
+                                    viewModel.deleteReminder(reminder)
+                                } label: {
+                                    Label("Sil", systemImage: "trash")
+                                }
+                            }
+                        }
                     }
                 }
-                .onDelete(perform: deleteItems)
             }
+            .navigationTitle("Anımsatıcılar")
             .toolbar {
-#if os(iOS)
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
+                    Button {
+                        showingAddReminder = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
                 }
-#endif
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        showingAddGroup = true
+                    } label: {
+                        Image(systemName: "folder.badge.plus")
                     }
                 }
             }
-            Text("Select an item")
-        }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(context: viewContext)
-            newItem.timestamp = Date()
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+            .sheet(isPresented: $showingAddReminder) {
+                AddReminderView(viewModel: viewModel)
             }
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            offsets.map { items[$0] }.forEach(viewContext.delete)
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+            .sheet(isPresented: $showingEditReminder) {
+                if let reminder = selectedReminder {
+                    ReminderEditView(reminder: reminder, viewModel: viewModel)
+                }
+            }
+            .alert("Yeni Grup", isPresented: $showingAddGroup) {
+                TextField("Grup Adı", text: $newGroupName)
+                Button("İptal", role: .cancel) {}
+                Button("Ekle") {
+                    if !newGroupName.isEmpty {
+                        viewModel.addGroup(name: newGroupName)
+                        newGroupName = ""
+                    }
+                }
+            }
+            .alert("Grubu Düzenle", isPresented: $showingEditGroup) {
+                TextField("Grup Adı", text: $editingGroupName)
+                Button("İptal", role: .cancel) {}
+                Button("Kaydet") {
+                    if let group = selectedGroup, !editingGroupName.isEmpty {
+                        viewModel.updateGroup(group, newName: editingGroupName)
+                    }
+                }
             }
         }
     }
 }
 
-private let itemFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .short
-    formatter.timeStyle = .medium
-    return formatter
-}()
-
-#Preview {
-    ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+// Grup başlığı için özel view
+struct GroupHeaderView: View {
+    let group: ReminderGroup
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+    
+    var body: some View {
+        HStack {
+            Text(group.name)
+            Spacer()
+            Button {
+                onEdit()
+            } label: {
+                Image(systemName: "pencil")
+                    .foregroundColor(.blue)
+            }
+            Button {
+                onDelete()
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundColor(.red)
+            }
+        }
+    }
 }
+
