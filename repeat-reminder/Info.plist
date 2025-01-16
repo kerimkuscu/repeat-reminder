@@ -7,5 +7,12 @@
 		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>
+    <key>NSUserNotificationAlertStyle</key>
+    <string>alert</string>
+    <key>UIUserNotificationSettings</key>
+    <dict>
+        <key>UIUserNotificationTypes</key>
+        <integer>7</integer>
+    </dict>
 </dict>
 </plist>
