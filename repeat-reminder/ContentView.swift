@@ -26,9 +26,16 @@ struct ContentView: View {
                     })) {
                         ForEach(group.reminders) { reminder in
                             ReminderRowView(reminder: reminder) {
-                                selectedReminder = reminder
+                            // Önce reminder'ı seçelim
+                            withAnimation {
+                                // Önce sheet'i aç
                                 showingEditReminder = true
+                                // Sonra reminder'ı seç
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    selectedReminder = reminder
+                                }
                             }
+                        }
                             .contextMenu {
                                 ForEach(viewModel.groups.filter { $0.id != group.id }) { targetGroup in
                                     Button {

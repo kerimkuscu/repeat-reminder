@@ -133,7 +133,12 @@ class ReminderViewModel: ObservableObject {
         
         // Tekrarlama varsa
         if let repeatInterval = reminder.repeatInterval, repeatInterval > 0 {
-            let repeatingContent = content.copy() as! UNMutableNotificationContent
+            // Yeni bir content oluştur
+            let repeatingContent = UNMutableNotificationContent()
+            repeatingContent.title = content.title
+            repeatingContent.body = content.body
+            repeatingContent.sound = content.sound
+            
             let repeatingTrigger = UNTimeIntervalNotificationTrigger(
                 timeInterval: repeatInterval,
                 repeats: true
