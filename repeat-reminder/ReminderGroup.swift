@@ -9,5 +9,7 @@ struct ReminderGroup: Identifiable, Codable {
         self.id = id
         self.name = name
         self.reminders = reminders
+        
+        
     }
 } 
